@@ -25,7 +25,8 @@
       "*.js"
     ],
     "exclude": [
-      "tests.js"
+      "tests.js",
+      ".eslintrc.js"
     ]
   },
   "dependencies": {},

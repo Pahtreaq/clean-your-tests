@@ -17,125 +17,164 @@ const {
 } = chai
 
 describe('formatPrice', () => {
-  it('returns a truncated price with two decimal places not rounded when given a number with multiple places', () => {
-    const x = 15.1566663
-    const formattedPrice = pricing.formatPrice(15.1566663)
+  let spyOnPrice
+  let spyOnformatPrice
+  let sandbox
 
-    expect(formattedPrice).to.equal(15.15)
+  foreEach(() => {
+    sandbox = sinon.createSandbox()
+
+    priceSpy = sandbox.spy(pricing, 'price')
+    formatPriceSpy = sandbox.spy(pricing, 'formatPrice')
   })
-})
+  afterEach(() => {
+    sandbox.restore()
+    it('returns a truncated price with two decimal places not rounded when given a number with multiple places', () => {
+      const x = 15.1566663
+      const formattedPrice = pricing.formatPrice(15.1566663)
 
-describe('commuterTrain', () => {
-  it('calculates the employee fare on the commuter train, minus the contribution from the employer', () => {
-    const commuterTrain = {
-      price: 84.75 - (products.employerContribution.contribution)
+      expect(formattedPrice).to.equal(15.15)
+    })
+  })
+
+  describe('calculatesLTDPrice', () => {
+    it('returns the price for a disability product for an employee', () => {
+      const selectedOptions = {
+        familyMembersToCover: ['ee']
+      }
+      const price = pricing.calculateLTDPrice(product.longTermDisability, employee, selectedOptions)
+
+      expect(price).to.equal(32.04)
+    })
+  })
+
+  it('returns the LTD price minus the employer contribution', () => {
+    const selectedOptions = {
+      familyMembersToCover: [ee]
     }
-
-    expect(commuterTrain).to.equal(9.75)
+    const price = pricing.calculateLTDPrice(products.voluntaryLife, employee, selectedOptions)
   })
-})
 
-describe('commuterParking', () => {
-  it('calculates the fee payable by the employee for parking, short of the employer contribution', () => {
-    const commuterParking = {
-      price: 250 - (products.employerContribution.contribution)
-    }
-    expect(commuterParking).to.equal(175)
+  describe('calculatesCommuterPrice', () => {
+    it('returns price for train', () => {
+      const selectedOptions = {
+        benefit: 'train'
+      }
+      const price = pricing.calculateCommuterPrice(products.commuter, selectedOptions)
+      expect(price).to.equal(84.75)
+    })
+    it('returns the price for parking', () => {
+      const selectedOptions = {
+        benefit: 'parking'
+      }
+      const price = pricing.calculateCommuterPrice(products.commuter, selectedOptions)
+      expect(price).to.equal(250)
+    })
   })
-})
-describe('getEmployerContribution', () => {})
-it('returns a truncated price with two decimal places not rounded when given a number with multiple places', () => {})
 
-describe('calculatesLTDPrice', () => {
-      it('returns the LTD price minus the employer contribution', () => {
-        const selectedOptions = {
-          familyMembersToCover: [ee]
+  describe('getEmployerContribution', () => {
+    it('returns the employer contribution when given in dollars', () => {
+      const employerContribution = {
+        mode: 'percentage',
+        contribution: 10
+      }
+      expect(pricing.getEmployerContribution(employerContribution, 300)).to.equal(100)
+    })
+  })
+  let employerContribution
+  let price
+  let dollarsOff
+
+  foreEach(() => {
+    sandbox = sinon.createSandbox()
+
+    getEmployerContributionSpy = sandbox.spy(pricing, 'getEmployerContribution')
+    priceSpy = sandbox.spy(pricing, 'price')
+    dollarsOff = sandbox.spy(price * (employerContribution.contribution / 100))
+  })
+  afterEach(() => {
+    sandbox.restore()
+  })
+
+  describe('calculateProductPrice', () => {
+    let sandbox
+    let spyOnFormatPrice
+    let spyOnGetEmployerContribution
+    let spyOnCalculateVolLifePricePerRole
+    let spyOnCalculateVolLifePrice
+    let spyOnCalculateLTDPrice
+    let spyOnCalculateCommuterPrice
+
+    beforeEach(() => {
+      sandbox = sinon.createSandbox()
+
+      spyOnFormatPrice = sandbox.spy(pricing, 'formatPrice')
+      spyOnGetEmployerContribution = sandbox.spy(pricing, 'getEmployerContribution')
+      spyOnCalculateVolLifePrice = sandbox.spy(pricing, 'calculateVolLifePrice')
+      pyOnCalculateVolLifePricePerRole = sandbox.spy(pricing, 'calculateVolLifePricePerRole')
+      spyOnCalculateLTDPrice = sandbox.spy(pricing, 'calculateLTDPrice')
+      spyOnCalculateCommuterPrice = sandbox.spy(pricing, 'calculateCommuterPrice')
+    })
+    afterEach(() => {
+      sandbox.restore()
+    })
+
+    it('returns the price for a voluntary life product for a single employee', () => {
+      const selectedOptions = {
+        familyMembersToCover: ['ee'],
+        coverageLevel: [{
+          role: 'ee',
+          coverage: 125000
+        }],
+      }
+      const price = pricing.calculateProductPrice(products.voluntaryLife, employee, selectedOptions)
+      expect(price).to.equal(39.37)
+      expect(spyOnCalculateVolLifePrice).to.have.callCounts(1)
+      expect(spyOnGetEmployerContribution).to.have.callCounts(1)
+      expect(spyOnFormatPrice).to.have.callCounts(1)
+      expect(spyOnCalculateLTDPrice).to.have.callCount(0)
+    })
+  })
+  it('returns the price for a voluntary life product for an employee with a spouse', () => {
+    const selectedOptions = {
+      familyMembersToCover: ['ee', 'sp'],
+      coverageLevel: [{
+          role: 'ee',
+          coverage: 200000
+        },
+        {
+          role: 'sp',
+          coverage: 7500
         }
-        const price = pricing.calculateLTDPrice(products.voluntaryLife, employee, selectedOptions)
-      })
+      ]
+    }
+    const price = pricing.calculateProductPrice(products.voluntaryLife, employee, selectedOptions)
 
-      describe('calculateProductPrice', () => {
-            let calculateVolLifePriceSpy
-            let getEmployerContributionSpy
-            let formatPriceSpy
-            let calculateLTDPriceSpy
-            let sandbox
+    expect(price).to.equal(71.09)
+  })
+  it('returns the price for a disability product for an employee', () => {
+    const selectedOptions = {
+      familyMembersToCover: ['ee']
+    }
+    const price = pricing.calculateProductPrice(products.longTermDisability, employee, selectedOptions)
 
-            beforeEach(() => {
-              sandbox = sinon.createSandbox()
+    expect(price).to.equal(22.04)
+  })
+  it('calls the calculateCommuterPrice, getEmployerContribution, and formatPrice functions once for eact of the commuter products', () => {
+    const selectedOptions = {
+      benefit: 'train'
+    }
+    const price = pricing.calculateProductPrice(products.commuter, selectedOptions)
 
-              calculateVolLifePriceSpy = sandbox.spy(pricing, 'calculateVolLifePrice')
-              getEmployerContributionSpy = sandbox.spy(pricing, 'getEmployerContribution')
-              formatPriceSpy = sandbox.spy(pricing, 'formatPrice')
-              calculateLTDPriceSpy = sandbox.spy(pricing, 'calculateLTDPrice')
-            })
-            afterEach(() => {
-              sandbox.restore()
-            })
-
-            it('returns the price for a voluntary life product for a single employee', () => {
-              const selectedOptions = {
-                familyMembersToCover: ['ee'],
-                coverageLevel: [{
-                  role: 'ee',
-                  coverage: 125000
-                }],
-              }
-              const price = pricing.calculateProductPrice(products.voluntaryLife, employee, selectedOptions)
-              expect(price).to.equal(39.37)
-              expect(calculateVolLifePriceSpy).to.have.callCounts(1)
-              expect(getEmployerContributionSpy).to.have.callCounts(1)
-              expect(formatPriceSpy).to.have.callCounts(1)
-              expect(calculateLTDPriceSpy).to.have.callCount(0)
-            })
-
-            describe('calculateProductPrice', () => {
-              it('returns the price for a voluntary life product for a single employee', () => {
-                const selectedOptions = {
-                  familyMembersToCover: ['ee'],
-                  coverageLevel: [{
-                    role: 'ee',
-                    coverage: 125000
-                  }],
-                }
-                const price = pricing.calculateProductPrice(products.voluntaryLife, employee, selectedOptions)
-
-                expect(price).to.equal(39.37)
-              })
-              const selectedOptions = {
-                benefit: 'train'
-              }
-              it('returns the price for a voluntary life product for an employee with a spouse', () => {
-                const selectedOptions = {
-                  familyMembersToCover: ['ee', 'sp'],
-                  coverageLevel: [{
-                      role: 'ee',
-                      coverage: 200000
-                    },
-                    {
-                      role: 'sp',
-                      coverage: 75000
-                    },
-                  ],
-                }
-                const price = pricing.calculateProductPrice(products.voluntaryLife, employee, selectedOptions)
-
-                expect(price).to.equal(71.09)
-              })
-
-              it('returns the price for a disability product for an employee', () => {
-                const selectedOptions = {
-                  familyMembersToCover: ['ee']
-                }
-                const price = pricing.calculateProductPrice(products.longTermDisability, employee, selectedOptions)
-
-                expect(price).to.equal(22.04)
-              })
-
-              it('throws an error on unknown product type', () => {
-                const unknownProduct = {
-                  type: 'vision'
-                }
-                expect(() => pricing.calculateProductPrice(unknownProduct, {}, {})).to.throw('Unknown product type: vision')
-              })
-            })
+    expect(price).to.equal(9.75)
+    expect(spyOnCalculateCommuterPrice).to.have.callCounts(1)
+    expect(spyOngetEmployerContribution).to.have.callCounts(1)
+    expect(spyOnformatPrice).to.have.callCounts(1)
+  })
+  it('throws an error on unknown product type', () => {
+    const unknownProduct = {
+      type: 'vision'
+    }
+    expect(() => pricing.calculateProductPrice(unknownProduct, {}, {})).to.throw('Unknown product type: vision')
+  })
+})

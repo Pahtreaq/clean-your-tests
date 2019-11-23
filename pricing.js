@@ -15,11 +15,9 @@ function calculateVolLifePricePerRole(role, coverageLevel, costs) {
   const eeCoverage = coverageLevel.find(coverage => {
     return coverage.role === role
   })
-
   const eeCost = costs.find(cost => {
     return cost.role === role
   })
-
   return (eeCoverage.coverage / eeCost.costDivisor) * eeCost.price
 }
 
@@ -59,6 +57,13 @@ function calculateLTDPrice(product, employee, selectedOptions) {
   return price
 }
 
+function calculateCommuterPrice(product, selectedOptions) {
+  const selectionCost = product.cost.find((cost) => {
+    return cost.type === selectedOptions.benefit
+  })
+  return selectionCost.price
+}
+
 function calculateProductPrice(product, employee, selectedOptions) {
   let price
   let employerContribution
@@ -70,8 +75,15 @@ function calculateProductPrice(product, employee, selectedOptions) {
       return this.formatPrice(price - employerContribution)
     case 'ltd':
       price = this.calculateLTDPrice(product, employee, selectedOptions)
-      employerContribution = getEmployerContribution(product.employerContribution, price)
+      employerContribution = this.getEmployerContribution(product.employerContribution, price)
       return this.formatPrice(price - employerContribution)
+    case 'commuter':
+      price = this.calculateCommuterPrice(product, selectedOptions)
+      selectionCost = this.product.costs.find((cost) => {
+        return this.cost.type === selectedOptions.benefit
+      })
+      return selectedOptions.price
+
     default:
       throw new Error(`Unknown product type: ${product.type}`)
   }
@@ -82,5 +94,6 @@ module.exports = {
   calculateVolLifePricePerRole,
   calculateVolLifePrice,
   calculateLTDPrice,
-  calculateProductPrice
+  calculateProductPrice,
+  calculateCommuterPrice
 }
